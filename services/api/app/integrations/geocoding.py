@@ -1,14 +1,18 @@
 import httpx
 
+from app.core.config import get_settings
 from app.core.exceptions import APIException
+
+HEADERS = {"User-Agent": "SacredLot/1.0 (open-source-housing-feasibility)"}
 
 
 async def fetch_coordinates(address: str):
-    url = f"https://photon.komoot.io/api"
-    params = {"q": address, "limit": 1}
+    url = "https://photon.komoot.io/api"
+    settings = get_settings()
+    params = {"q": address, "limit": 1, "bbox": settings.geocoding_bbox}
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers=HEADERS, timeout=6.0) as client:
             response = await client.get(url, params=params)
 
         if response.status_code != 200:
@@ -33,7 +37,7 @@ async def fetch_coordinates(address: str):
                     status_code=404,
                     error_code="ADDRESS_NOT_FOUND",
                     message=f"No spatial match for address query: '{address}'",
-                    user_message="We couldn't find a matching address. Please check the street and city name.",
+                    user_message="We couldn't find a matching address in the supported area. Please check the street and city name.",
                 )
 
             geometry = features[0]["geometry"]
@@ -53,6 +57,14 @@ async def fetch_coordinates(address: str):
             ):
                 raise ValueError(
                     "Coordinates must be numeric and within geographic bounds"
+                )
+
+            if not settings.contains(latitude, longitude):
+                raise APIException(
+                    status_code=422,
+                    error_code="OUTSIDE_SUPPORTED_AREA",
+                    message="Geocoding result lies outside the configured bounding box.",
+                    user_message="This location is outside our currently supported area.",
                 )
 
             return latitude, longitude

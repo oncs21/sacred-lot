@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
+from app.core.config import Settings
 from app.core.exceptions import APIException
 from app.integrations import geocoding
 
@@ -12,7 +13,12 @@ from app.integrations import geocoding
 def client(monkeypatch):
     mock = AsyncMock(spec=httpx.AsyncClient)
     mock.__aenter__.return_value = mock
-    monkeypatch.setattr(geocoding.httpx, "AsyncClient", lambda: mock)
+    monkeypatch.setattr(geocoding.httpx, "AsyncClient", lambda **kwargs: mock)
+    monkeypatch.setattr(
+        geocoding,
+        "get_settings",
+        lambda: Settings(geocoding_bbox="-109.06,36.99,-102.04,41.00"),
+    )
     return mock
 
 
@@ -50,6 +56,7 @@ def test_uses_https_and_encodes_address_as_query_parameter(client):
     request = httpx.Request("GET", endpoint, params=kwargs["params"])
     assert request.url.params.get_list("q") == [address]
     assert request.url.params["limit"] == "1"
+    assert request.url.params["bbox"] == "-109.06,36.99,-102.04,41.00"
 
 
 def test_reports_address_not_found(client):
@@ -103,8 +110,8 @@ def test_maps_transport_failure_to_application_error(client, error_type):
         httpx.Response(200, json=[]),
         httpx.Response(200, json={"features": None}),
         httpx.Response(200, json={"features": [None]}),
-        httpx.Response(200, json={"features": [feature("invalid", 40)]}), # pyright: ignore[reportArgumentType]
-        httpx.Response(200, json={"features": [feature(True, 40)]}), # pyright: ignore[reportArgumentType]
+        httpx.Response(200, json={"features": [feature("invalid", 40)]}),  # pyright: ignore[reportArgumentType]
+        httpx.Response(200, json={"features": [feature(True, 40)]}),  # pyright: ignore[reportArgumentType]
         httpx.Response(200, json={"features": [feature(-181, 40)]}),
         httpx.Response(200, json={"features": [feature(-105, 91)]}),
     ],
@@ -130,3 +137,26 @@ def test_maps_malformed_upstream_payload_to_application_error(client, response):
     assert error.value.status_code == 502
     assert error.value.error_code == "INVALID_GEOCODING_RESPONSE"
     assert error.value.user_message
+
+
+@pytest.mark.parametrize(
+    "longitude,latitude", [(-110, 40), (-101, 40), (-105, 36), (-105, 42)]
+)
+def test_rejects_results_outside_configured_area(client, longitude, latitude):
+    client.get.return_value = httpx.Response(
+        200, json={"features": [feature(longitude, latitude)]}
+    )
+    with pytest.raises(APIException) as error:
+        asyncio.run(geocoding.fetch_coordinates("Outside address"))
+    assert error.value.status_code == 422
+    assert error.value.error_code == "OUTSIDE_SUPPORTED_AREA"
+
+
+def test_uses_configured_bounding_box(client, monkeypatch):
+    settings = Settings(geocoding_bbox="-125,32,-114,42")
+    monkeypatch.setattr(geocoding, "get_settings", lambda: settings)
+    client.get.return_value = httpx.Response(
+        200, json={"features": [feature(-122, 37)]}
+    )
+    assert asyncio.run(geocoding.fetch_coordinates("Sample address")) == (37, -122)
+    assert client.get.call_args.kwargs["params"]["bbox"] == "-125,32,-114,42"
