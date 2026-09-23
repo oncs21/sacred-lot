@@ -16,3 +16,5 @@ coverage.xml
 /services/api/build/
 /services/api/dist/
 /.vscode/
+/data/raw/
+/data/processed/

@@ -6,6 +6,7 @@ import pytest
 from app.core.config import Settings
 from app.integrations import geocoding
 from app.main import app
+from app.routers import search as search_router
 
 HTTPClient = httpx.AsyncClient
 
@@ -27,6 +28,9 @@ def feature(name="Grace Commons Church", longitude=-105.278, latitude=40.019):
 
 @pytest.fixture
 def photon(monkeypatch):
+    monkeypatch.setattr(
+        search_router, "fetch_address_suggestions", geocoding.fetch_address_suggestions
+    )
     state = {
         "response": httpx.Response(200, json={"features": [feature()]}),
         "requests": [],

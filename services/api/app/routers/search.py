@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from pydantic import StringConstraints
 
-from app.integrations.geocoding import fetch_address_suggestions
+from app.integrations.addresses import fetch_address_suggestions
 from app.schemas.address import AddressSuggestion
 from app.schemas.feasibility import FeasibilityResponseSchema
 from app.services.analysis import run_property_feasibility

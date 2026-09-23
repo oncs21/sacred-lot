@@ -1,5 +1,6 @@
 from functools import lru_cache
 from math import isfinite
+from pathlib import Path
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -7,6 +8,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SACRED_LOT_", frozen=True)
+
+    address_database: Path = (
+        Path(__file__).resolve().parents[4] / "data/processed/addresses.sqlite"
+    )
 
     geocoding_bbox: str = "-109.06,36.99,-102.04,41.00"
 
