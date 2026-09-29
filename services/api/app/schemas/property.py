@@ -8,9 +8,9 @@ class ParcelDataSchema(BaseModel):
     address: str
     city: str
     owner: str
-    land_acres: float
-    calculated_sqft: float
-    zoning_code: Optional[str] = "UNKNOWN"
+    land_acres: float | None
+    calculated_sqft: float | None
+    zoning_code: Optional[str] = None
     zoning_desc: Optional[str] = None
     geometry_rings: List[List[List[float]]] = Field(..., description="Polygon boundary ring coordinates")
 

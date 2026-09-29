@@ -6,6 +6,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.address_search import search
 from app.core.config import get_settings
 from app.core.exceptions import APIException
+from app.integrations.geocoding import fetch_address_suggestions as fetch_photon_suggestions
 from app.schemas.address import AddressSuggestion
 
 
@@ -35,4 +36,7 @@ def _lookup(address: str, limit: int) -> list[AddressSuggestion]:
 async def fetch_address_suggestions(
     address: str, limit: int = 5
 ) -> list[AddressSuggestion]:
-    return await run_in_threadpool(_lookup, address, limit)
+    suggestions = await run_in_threadpool(_lookup, address, limit)
+    if suggestions:
+        return suggestions
+    return await fetch_photon_suggestions(address, limit)

@@ -5,10 +5,10 @@ class FeasibilityResponseSchema(BaseModel):
     parcel_id: str
     owner: str
     address: str
-    total_acres: float
-    total_sqft: float
-    units_yield: int = Field(..., description="Estimated micro-housing units yielded")
-    retained_parking_pct: int = Field(..., description="Percentage of parking surface preserved")
+    total_acres: float | None
+    total_sqft: float | None
+    units_yield: int | None = Field(..., description="Estimated housing unit count")
+    retained_parking_pct: int | None = Field(..., description="Percentage of parking surface preserved")
     geojson_rings: List[List[List[float]]] = Field(..., description="Boundary ring polygon coordinates for 2D/3D map rendering")
 
     class Config:
