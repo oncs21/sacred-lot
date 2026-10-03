@@ -2,11 +2,14 @@ import asyncio
 import runpy
 import sqlite3
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 
 from app.core.config import Settings
+from app.core.exceptions import APIException
+from app.schemas.address import AddressSuggestion
 from app.integrations import addresses
 from app.main import app
 
@@ -16,7 +19,14 @@ IMPORTER = runpy.run_path(
 
 
 @pytest.fixture
-def database(tmp_path, monkeypatch):
+def photon(monkeypatch):
+    fallback = AsyncMock(return_value=[])
+    monkeypatch.setattr(addresses, "fetch_photon_suggestions", fallback)
+    return fallback
+
+
+@pytest.fixture
+def database(tmp_path, monkeypatch, photon):
     output = tmp_path / "addresses.sqlite"
     IMPORTER["import_records"](
         [
@@ -56,7 +66,7 @@ def request(params):
     return asyncio.run(get())
 
 
-def test_contract_and_limit(database):
+def test_contract_and_limit(database, photon):
     response = request({"address": " 1820 15th street Boulder ", "limit": 1})
     assert response.status_code == 200
     assert response.json() == [
@@ -67,13 +77,15 @@ def test_contract_and_limit(database):
         }
     ]
     assert len(request({"address": "1820 15"}).json()) == 2
+    photon.assert_not_awaited()
 
 
 @pytest.mark.parametrize("query", ["unknown avenue", "***", '" OR --'])
-def test_empty_results(database, query):
+def test_empty_results(database, photon, query):
     response = request({"address": query})
     assert response.status_code == 200
     assert response.json() == []
+    photon.assert_awaited_once_with(query, 5)
 
 
 @pytest.mark.parametrize(
@@ -100,7 +112,7 @@ def test_bounds(database, monkeypatch):
 
 
 @pytest.mark.parametrize("state", ["missing", "corrupt", "wrong-version"])
-def test_database_failure(database, state):
+def test_database_failure(database, photon, state):
     if state == "missing":
         database.unlink()
     elif state == "corrupt":
@@ -111,7 +123,29 @@ def test_database_failure(database, state):
                 "UPDATE metadata SET value = '2' WHERE key = 'schema_version'"
             )
     response = request({"address": "1820"})
+    photon.assert_not_awaited()
     assert response.status_code == 503
     assert response.json()["detail"]["error_code"] == "ADDRESS_DATABASE_UNAVAILABLE"
     if state == "missing":
         assert not database.exists()
+
+
+def test_photon_matches_use_existing_suggestion_contract(database, photon):
+    photon.return_value = [
+        AddressSuggestion(address=label, latitude=40.0, longitude=-105.0)
+        for label in ["First address", "Second address"]
+    ]
+    response = request({"address": "Unlisted road", "limit": 2})
+    assert response.status_code == 200
+    assert response.json() == [item.model_dump() for item in photon.return_value]
+    photon.assert_awaited_once_with("Unlisted road", 2)
+
+
+def test_photon_failure_is_reported(database, photon):
+    photon.side_effect = APIException(
+        status_code=503, error_code="GEOCODING_SERVICE_DOWN",
+        user_message="Address suggestions are temporarily unavailable.",
+    )
+    response = request({"address": "Unlisted road"})
+    assert response.status_code == 503
+    assert response.json()["detail"]["error_code"] == "GEOCODING_SERVICE_DOWN"

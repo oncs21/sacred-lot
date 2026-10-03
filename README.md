@@ -3,9 +3,11 @@
 ## Current features
 
 - Flutter dashboard for iOS and web, with an illustrative housing and parking model.
-- Local address suggestions backed by SQLite full-text search.
+- Local address suggestions backed by SQLite full-text search, with Photon fallback when no local matches exist.
 - A FastAPI endpoint for parcel lookup and preliminary housing estimates.
 - An importer for Colorado public address data.
+
+Explore connects address suggestions and parcel details to the API. Dashboard still uses sample data.
 
 ## Requirements
 
@@ -20,7 +22,7 @@ From the repository root:
 ```sh
 cd services/api
 uv sync
-uv run fastapi dev app/main.py
+uv run python -m uvicorn app.main:app --reload
 ```
 
 ### Address database
@@ -79,6 +81,8 @@ flutter run -d chrome
 
 For iOS, open an iPhone simulator and run `flutter run` from the same directory, selecting the simulator if prompted.
 
+Start the backend before using Explore. The app defaults to `http://127.0.0.1:8000` for the iOS simulator. Override it with `--dart-define=API_BASE_URL=https://your-api-host` for another server. Browser API access requires backend CORS configuration, which is not included yet.
+
 ## Tests
 
 Backend, from the repository root:
@@ -107,3 +111,15 @@ scripts/           Dataset import tools
 data/raw/          Original downloads
 data/processed/    Generated databases
 ```
+
+### Boulder zoning
+
+Download the City of Boulder zoning boundaries from the repository root:
+
+```sh
+uv run --project services/api python scripts/download_zoning.py
+```
+
+The downloaded CSV contains district attributes but no boundaries. The downloader retrieves geometry from the official GIS service and writes `data/processed/boulder_zoning.geojson`, including the source URL and retrieval time. Refresh it by running the command again. Override the file path with `SACRED_LOT_ZONING_DATASET`.
+
+`/search/parcel-details` includes a `zoning` result with district codes, descriptions, source metadata, and a status: `matched`, `partial`, `no_match`, or `unavailable`. Boundary-only contact does not count as overlap. No match does not establish jurisdiction or imply that the property is unzoned. Zoning rules and housing permissions are not evaluated, and these results do not change the illustrative housing calculation.

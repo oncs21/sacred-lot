@@ -8,6 +8,7 @@ dependencies = [
     "fastapi[standard]>=0.141.1",
     "pydantic-settings>=2.15.0",
     "pyogrio>=0.13.0",
+    "shapely>=2.1.2",
 ]
 
 [dependency-groups]

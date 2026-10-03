@@ -10,6 +10,7 @@ ALIASES: dict[str, str] = {
     "DRIVE": "DR",
     "LANE": "LN",
     "COURT": "CT",
+    "CIRCLE": "CIR",
     "NORTH": "N",
     "SOUTH": "S",
     "EAST": "E",
