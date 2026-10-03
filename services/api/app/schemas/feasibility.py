@@ -1,7 +1,9 @@
+from app.schemas.zoning import ZoningResult
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
 class FeasibilityResponseSchema(BaseModel):
+    zoning: ZoningResult = Field(default_factory=lambda: ZoningResult(status="unavailable"))
     parcel_id: str
     owner: str
     address: str

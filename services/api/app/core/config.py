@@ -13,6 +13,8 @@ class Settings(BaseSettings):
         Path(__file__).resolve().parents[4] / "data/processed/addresses.sqlite"
     )
 
+    zoning_dataset: Path = Path(__file__).resolve().parents[4] / "data/processed/boulder_zoning.geojson"
+
     geocoding_bbox: str = "-109.06,36.99,-102.04,41.00"
 
     @field_validator("geocoding_bbox")

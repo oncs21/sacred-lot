@@ -1,3 +1,4 @@
+from app.integrations.zoning import fetch_zoning
 from app.integrations.geocoding import fetch_coordinates
 from app.integrations.parcels import fetch_parcel_information
 
@@ -34,5 +35,6 @@ async def run_property_feasibility(
         "total_sqft": parcel.calculated_sqft,
         "units_yield": estimated_units,
         "retained_parking_pct": int((1.0 - density) * 100) if parcel.calculated_sqft is not None else None,
+        "zoning": await fetch_zoning(parcel.geometry_rings),
         "geojson_rings": parcel.geometry_rings
     }
